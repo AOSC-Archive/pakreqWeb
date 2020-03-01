@@ -1,0 +1,81 @@
+{{#> base ~}}
+    <!-- Details -->
+    <div style="overflow: auto">
+        <table>
+            <tbody>
+            <tr>
+                <td>
+                    ID
+                </td>
+                <td>
+                    {{ request.id }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Name
+                </td>
+                <td>
+                    {{ request.name }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Type
+                </td>
+                <td>
+                    {{#if type_ == "PAKREQ" }}
+                    New
+                    {{else if type_ == "UPDREQ" }}
+                    Update
+                    {{else if type_ == "OPTREQ" }}
+                    Optimize
+                    {{else}}
+                    ???
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Published Date
+                </td>
+                <td>
+                    {{ request.pub_date }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Description
+                </td>
+                <td>
+                    {{ request.description }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Requested By
+                </td>
+                <td>
+                    {{ request.requester.username }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Claimed By
+                </td>
+                <td>
+                    {{ request.packager.username }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    ETA
+                </td>
+                <td>
+                    {{ request.note }}
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+{{/base }}

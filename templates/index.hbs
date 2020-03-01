@@ -1,0 +1,40 @@
+{{#> base title = "AOSC OS Package Requests", banner_title = "AOSC OS Package Requests" }}
+    {{#if !requests.is_empty() }}
+        <div style="overflow: auto">
+            <table class="requests">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{#each requests}}
+                    <tr>
+                        <td class="req-id">{{ id }}</td>
+                        <td class="req-name"><a href="{{ super::base_url }}/detail/{{ id }}">{{ name }}</a></td>
+                        <td class="req-type">
+                            {{#if type_ == "PAKREQ" }}
+                            New
+                            {{else if type_ == "UPDREQ" }}
+                            Update
+                            {{else if type_ == "OPTREQ" }}
+                            Optimize
+                            {{else}}
+                            ???
+                            {{/if}}
+                        </td>
+                        <td class="req-date">{{ pub_date.format("%Y-%m-%d").to_string() }}</td>
+                        <td class="req-desc">{{ description.as_ref().unwrap_or(&"N/A".to_string()) }}</td>
+                    </tr>
+                {{/each}}
+                </tbody>
+            </table>
+        </div>
+    {{else}}
+        <p>No open requests</p>
+    {{/if }}
+{{/base }}

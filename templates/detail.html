@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% set title = request.name + ' - AOSC OS Package Requests' %}
+{% block banner %}
+    <h1>{{ request.name }}</h1>
+    <p>Description: {{ request.description }}</p>
+{% endblock %}
+
+{% block content %}
+    <!-- Details -->
+    <div style="overflow: auto">
+        <table>
+            <tbody>
+            <tr>
+                <td>
+                    ID
+                </td>
+                <td>
+                    {{ request.id }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Name
+                </td>
+                <td>
+                    {{ request.name }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Type
+                </td>
+                <td>
+                    {{ pakreqType(request.type) }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Published Date
+                </td>
+                <td>
+                    {{ request.pub_date }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Description
+                </td>
+                <td>
+                    {{ request.description }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Requested By
+                </td>
+                <td>
+                    {{ request.requester.username }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Claimed By
+                </td>
+                <td>
+                    {{ request.packager.username }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    ETA
+                </td>
+                <td>
+                    {{ request.note }}
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
