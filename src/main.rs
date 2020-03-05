@@ -6,8 +6,8 @@ use actix_web::HttpResponse;
 use actix_web::{http, http::StatusCode, middleware, web, App, Error, HttpServer, Responder};
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
-use yarte::Template;
 use dotenv;
+use yarte::Template;
 
 mod assets;
 mod auth;
@@ -31,6 +31,38 @@ struct IndexTemplate {
     base_url: String,
     requests: Vec<models::Request>,
     banner_subtitle: String,
+}
+
+#[derive(Template)]
+#[template(path = "details.hbs")]
+struct DetailsTemplate {
+    base_url: String,
+    request: models::RequestStr,
+    title: String,
+    banner_title: String,
+}
+
+async fn details(pool: web::Data<DbPool>, base_url: String, path: web::Path<(i64,)>) -> Result<HttpResponse, Error> {
+    let conn = pool.get().unwrap();
+
+    let detail = web::block(move || db::get_request_detail_by_id(&conn, path.0))
+        .await
+        .map_err(|_| HttpResponse::InternalServerError().finish())?;
+    let request_name = detail.name.clone();
+    let response = DetailsTemplate {
+        base_url,
+        request: detail,
+        banner_title: request_name.clone(),
+        title: format!("{} - AOSC OS Package Requests", request_name),
+    };
+    let res = HttpResponse::Ok()
+        .header(http::header::CONTENT_TYPE, "text/html")
+        .body(
+            response
+                .call()
+                .unwrap_or("Internal Server Error".to_string()),
+        );
+    Ok(res)
 }
 
 async fn index(pool: web::Data<DbPool>, base_url: String) -> Result<HttpResponse, Error> {
@@ -82,6 +114,7 @@ async fn main() -> std::io::Result<()> {
             .data(pool.clone())
             .data(base_url.clone())
             .route("/", web::get().to(index))
+            .route("/detail/{id}", web::get().to(details))
             .route("/login", web::get().to(auth::login))
             .route("/login", web::post().to(auth::form_login))
             .route("/logout", web::get().to(auth::logout))

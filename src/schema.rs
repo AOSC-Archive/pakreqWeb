@@ -33,7 +33,6 @@ table! {
 }
 
 joinable!(oauth -> user (uid));
-joinable!(request -> user (requester_id));
 
 allow_tables_to_appear_in_same_query!(
     oauth,

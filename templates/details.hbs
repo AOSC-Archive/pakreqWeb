@@ -1,4 +1,4 @@
-{{#> base ~}}
+{{#> base banner_subtitle = "" ~}}
     <!-- Details -->
     <div style="overflow: auto">
         <table>
@@ -24,11 +24,11 @@
                     Type
                 </td>
                 <td>
-                    {{#if type_ == "PAKREQ" }}
+                    {{#if request.type_ == "PAKREQ" }}
                     New
-                    {{else if type_ == "UPDREQ" }}
+                    {{else if request.type_ == "UPDREQ" }}
                     Update
-                    {{else if type_ == "OPTREQ" }}
+                    {{else if request.type_ == "OPTREQ" }}
                     Optimize
                     {{else}}
                     ???
@@ -40,7 +40,7 @@
                     Published Date
                 </td>
                 <td>
-                    {{ request.pub_date }}
+                    {{ request.pub_date.format("%Y-%m-%d").to_string() }}
                 </td>
             </tr>
             <tr>
@@ -48,7 +48,7 @@
                     Description
                 </td>
                 <td>
-                    {{ request.description }}
+                    {{ request.description.as_ref().unwrap_or(&"N/A".to_string()) }}
                 </td>
             </tr>
             <tr>
@@ -56,7 +56,7 @@
                     Requested By
                 </td>
                 <td>
-                    {{ request.requester.username }}
+                    {{ request.requester }}
                 </td>
             </tr>
             <tr>
@@ -64,7 +64,7 @@
                     Claimed By
                 </td>
                 <td>
-                    {{ request.packager.username }}
+                    {{ request.packager }}
                 </td>
             </tr>
             <tr>
@@ -72,7 +72,7 @@
                     ETA
                 </td>
                 <td>
-                    {{ request.note }}
+                    {{ request.note.as_ref().unwrap_or(&"N/A".to_string()) }}
                 </td>
             </tr>
             </tbody>

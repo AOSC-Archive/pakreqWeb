@@ -27,6 +27,19 @@ pub struct Request {
 }
 
 #[derive(Queryable, Debug)]
+pub struct RequestStr {
+    pub id: i64,
+    pub status: String,
+    pub type_: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub requester: String,
+    pub packager: String,
+    pub pub_date: NaiveDate,
+    pub note: Option<String>,
+}
+
+#[derive(Queryable, Debug)]
 pub struct User {
     pub id: i64,
     pub username: String,
