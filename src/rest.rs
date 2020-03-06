@@ -150,6 +150,7 @@ async fn rest_login(pool: web::Data<DbPool>, req: &HttpRequest) -> Result<HttpRe
 
 #[inline]
 async fn issue_jwt_token(username: &str) -> Result<String, Error> {
+    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET not set");
     let expiration = Duration::days(1);
     let claim = UserClaims {
         iat: Utc::now(),
@@ -161,7 +162,7 @@ async fn issue_jwt_token(username: &str) -> Result<String, Error> {
         encode(
             &Header::default(),
             &claim,
-            &EncodingKey::from_secret(b"123456"),
+            &EncodingKey::from_secret(secret.as_ref()),
         )
     })
     .await?;

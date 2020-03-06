@@ -99,6 +99,7 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
     let base_url = std::env::var("BASE_URL").expect("BASE_URL not set");
+    std::env::var("JWT_SECRET").expect("JWT_SECRET not set"); // will be used later
     let manager = ConnectionManager::<PgConnection>::new(connspec);
     let pool = r2d2::Pool::builder()
         .build(manager)
