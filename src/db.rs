@@ -34,9 +34,9 @@ pub fn get_request_detail_by_id(
         note: request.note,
         packager: {
             if let Some(packager) = packager {
-                packager.username
+                Some(packager.username)
             } else {
-                "Unknown".to_owned()
+                None
             }
         },
         requester: {

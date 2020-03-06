@@ -64,7 +64,7 @@
                     Claimed By
                 </td>
                 <td>
-                    {{ request.packager }}
+                    {{ request.packager.as_ref().unwrap_or(&"N/A".to_string()) }}
                 </td>
             </tr>
             <tr>

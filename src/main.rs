@@ -14,6 +14,7 @@ mod auth;
 mod db;
 mod models;
 mod schema;
+mod rest;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -111,6 +112,7 @@ async fn main() -> std::io::Result<()> {
                     .name("identity")
                     .secure(false),
             ))
+            .wrap(middleware::NormalizePath)
             .data(pool.clone())
             .data(base_url.clone())
             .route("/", web::get().to(index))
@@ -123,6 +125,7 @@ async fn main() -> std::io::Result<()> {
             .route("/static/aosc.png", web::get().to(assets::logo_png))
             .route("/static/aosc.svg", web::get().to(assets::logo_svg))
             .route("/static/style.css", web::get().to(assets::style_css))
+            .route("/api/{endpoint:.*}", web::get().to(rest::rest_dispatch))
             .default_service(web::route().to(not_found))
     })
     .bind("127.0.0.1:8000")?
