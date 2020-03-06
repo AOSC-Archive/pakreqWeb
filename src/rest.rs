@@ -57,10 +57,13 @@ macro_rules! OK {
     };
 }
 
-pub async fn rest_dispatch(pool: web::Data<DbPool>, req: HttpRequest) -> HttpResponse {
+pub async fn rest_dispatch(
+    pool: web::Data<DbPool>,
+    req: HttpRequest,
+) -> Result<HttpResponse, Error> {
     let path = req.match_info().query("endpoint").parse::<PathBuf>();
     if path.is_err() {
-        return BAD_REQUEST!();
+        return Ok(BAD_REQUEST!());
     }
     let path = path.unwrap();
     let mut components = path.iter();
@@ -70,93 +73,82 @@ pub async fn rest_dispatch(pool: web::Data<DbPool>, req: HttpRequest) -> HttpRes
                 "requests" => rest_requests(pool, components).await,
                 "request" => rest_request_detail(pool, components).await,
                 "login" => rest_login(pool, &req).await,
-                _ => BAD_REQUEST!(),
+                _ => Ok(BAD_REQUEST!()),
             }
         };
     }
 
-    BAD_REQUEST!()
+    Ok(BAD_REQUEST!())
 }
 
 #[inline]
-async fn rest_request_detail(pool: web::Data<DbPool>, mut components: Iter<'_>) -> HttpResponse {
+async fn rest_request_detail(
+    pool: web::Data<DbPool>,
+    mut components: Iter<'_>,
+) -> Result<HttpResponse, Error> {
     let conn = pool.get().unwrap();
 
     let request_id = components.next();
     if let Some(request_id) = request_id {
-        let request_id = str::parse::<i64>(&request_id.to_string_lossy());
-        if let Ok(request_id) = request_id {
-            let detail = web::block(move || db::get_request_detail_by_id(&conn, request_id)).await;
-            if detail.is_err() {
-                return INTERNAL_ERROR!();
-            }
-            let detail = detail.unwrap();
-            if let Ok(result) = to_string(&detail) {
-                return OK!(result);
-            }
-            return INTERNAL_ERROR!();
-        }
+        let request_id =
+            str::parse::<i64>(&request_id.to_string_lossy()).map_err(|_| INTERNAL_ERROR!())?;
+        let detail = web::block(move || db::get_request_detail_by_id(&conn, request_id))
+            .await
+            .map_err(|_| INTERNAL_ERROR!())?;
+        let result = to_string(&detail).map_err(|_| INTERNAL_ERROR!())?;
+        return Ok(OK!(result));
     }
 
-    BAD_REQUEST!()
+    Ok(BAD_REQUEST!())
 }
 
 #[inline]
-async fn rest_requests(pool: web::Data<DbPool>, _components: Iter<'_>) -> HttpResponse {
+async fn rest_requests(
+    pool: web::Data<DbPool>,
+    _components: Iter<'_>,
+) -> Result<HttpResponse, Error> {
     let conn = pool.get().unwrap();
-    let requests = web::block(move || db::get_open_requests(&conn)).await;
-    if let Ok(requests) = requests {
-        let result = to_string(&requests);
-        if let Ok(result) = result {
-            return OK!(result);
-        }
-    }
+    let requests = web::block(move || db::get_open_requests(&conn))
+        .await
+        .map_err(|_| INTERNAL_ERROR!())?;
+    let result = to_string(&requests).map_err(|_| INTERNAL_ERROR!())?;
 
-    INTERNAL_ERROR!()
+    Ok(OK!(result))
 }
 
 #[inline]
-async fn rest_login(pool: web::Data<DbPool>, req: &HttpRequest) -> HttpResponse {
+async fn rest_login(pool: web::Data<DbPool>, req: &HttpRequest) -> Result<HttpResponse, Error> {
     let headers = req.headers();
     let username = headers.get("x-username");
     let password = headers.get("x-password");
     let username_str: &str;
     if let Some(username) = username {
-        if let Ok(username) = username.to_str() {
-            username_str = username;
-        } else {
-            return NOT_AUTHORIZED!();
-        }
+        username_str = username.to_str().map_err(|_| NOT_AUTHORIZED!())?;
     } else {
-        return NOT_AUTHORIZED!();
+        return Ok(NOT_AUTHORIZED!());
     }
     if let Some(password) = password {
-        if let Ok(password) = password.to_str() {
-            let is_valid_password =
-                auth::check_password(pool, username_str.to_string(), password).await;
-            if let Ok(is_valid_password) = is_valid_password {
-                if is_valid_password {
-                    let token = issue_jwt_token(username_str).await;
-                    if let Ok(token) = token {
-                        // TODO
-                        let result = to_string(&TokenResponse {
-                            success: true,
-                            token,
-                        })
-                        .unwrap();
-                        return OK!(result);
-                    }
-                    return BAD_REQUEST!();
-                }
-            } else {
-                return INTERNAL_ERROR!();
-            }
+        let password = password.to_str().map_err(|_| NOT_AUTHORIZED!())?;
+        let is_valid_password = auth::check_password(pool, username_str.to_string(), password)
+            .await
+            .map_err(|_| INTERNAL_ERROR!())?;
+        if is_valid_password {
+            let token = issue_jwt_token(username_str)
+                .await
+                .map_err(|_| INTERNAL_ERROR!())?;
+            let result = to_string(&TokenResponse {
+                success: true,
+                token,
+            })
+            .map_err(|_| INTERNAL_ERROR!())?;
+            return Ok(OK!(result));
         }
     }
 
-    NOT_AUTHORIZED!()
+    Ok(NOT_AUTHORIZED!())
 }
 
+#[inline]
 async fn issue_jwt_token(username: &str) -> Result<String, Error> {
     let expiration = Duration::days(1);
     let claim = UserClaims {
