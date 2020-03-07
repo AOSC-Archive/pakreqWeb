@@ -98,6 +98,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     dotenv::dotenv().ok();
     let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
+    let listen = std::env::var("LISTEN_ADDRESS").expect("LISTEN_ADDRESS not set");
     let base_url = std::env::var("BASE_URL").expect("BASE_URL not set");
     std::env::var("JWT_SECRET").expect("JWT_SECRET not set"); // will be used later
     let manager = ConnectionManager::<PgConnection>::new(connspec);
@@ -129,7 +130,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/{endpoint:.*}", web::get().to(rest::rest_dispatch))
             .default_service(web::route().to(not_found))
     })
-    .bind("127.0.0.1:8000")?
+    .bind(listen)?
     .run()
     .await
 }
