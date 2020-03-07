@@ -1,4 +1,4 @@
-use crate::models::{Request, RequestStr, User};
+use crate::models::{Request, RequestStr, RequestInput, User, Oauth};
 use diesel::prelude::*;
 
 pub fn get_open_requests(conn: &PgConnection) -> Result<Vec<Request>, diesel::result::Error> {
@@ -76,4 +76,51 @@ pub fn get_user_by_username(
         .first::<User>(conn)
         .optional()?;
     Ok(user_)
+}
+
+pub fn get_user_by_oauth(
+    conn: &PgConnection,
+    service: &str,
+    oid_: Option<&str>,
+    token: Option<&str>,
+) -> Result<User, diesel::result::Error> {
+    use crate::schema::*;
+    let (user_, _) = user::table.inner_join(oauth::table).filter(
+        oauth::type_
+            .eq(service)
+            .and(oauth::oid.eq(oid_))
+            .and(oauth::token.eq(token)),
+    ).first::<(User, Oauth)>(conn)?;
+
+    Ok(user_)
+}
+
+// Writables
+
+pub fn close_request_by_id(
+    conn: &PgConnection,
+    id_: i64,
+    reject: bool,
+) -> Result<(), diesel::result::Error> {
+    use crate::schema::request::dsl::*;
+    diesel::update(request.find(id_))
+        .set(status.eq({
+            if reject {
+                "REJECTED"
+            } else {
+                "DONE"
+            }
+        }))
+        .get_result::<Request>(conn)?;
+
+    Ok(())
+}
+
+pub fn update_password_hash(conn: &PgConnection, username_: String, hash: String) -> Result<(), diesel::result::Error> {
+    use crate::schema::user::dsl::*;
+    diesel::update(user.filter(username.eq(username_)))
+        .set(password_hash.eq(hash))
+        .get_result::<User>(conn)?;
+
+    Ok(())
 }

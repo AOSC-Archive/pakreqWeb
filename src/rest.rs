@@ -148,6 +148,7 @@ async fn rest_login(pool: web::Data<DbPool>, req: &HttpRequest) -> Result<HttpRe
     Ok(NOT_AUTHORIZED!())
 }
 
+// utility functions
 #[inline]
 async fn issue_jwt_token(username: &str) -> Result<String, Error> {
     let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET not set");
@@ -168,4 +169,18 @@ async fn issue_jwt_token(username: &str) -> Result<String, Error> {
     .await?;
 
     Ok(token)
+}
+
+async fn validate_jwt_token(token: String) -> Result<String, Error> {
+    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET not set");
+    let token_data = web::block(move || {
+        decode::<UserClaims>(
+            &token,
+            &DecodingKey::from_secret(secret.as_ref()),
+            &Validation::default(),
+        )
+    })
+    .await?;
+
+    Ok(token_data.claims.sub)
 }

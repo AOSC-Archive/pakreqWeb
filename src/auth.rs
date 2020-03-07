@@ -5,6 +5,7 @@ use actix_web::{http, http::StatusCode, HttpResponse};
 use argonautica;
 use diesel::PgConnection;
 use serde::Deserialize;
+use std::io::{Error as IoError, ErrorKind};
 use yarte::Template;
 
 #[derive(Template)]
@@ -80,6 +81,28 @@ pub async fn check_password(
     }
 
     Ok(false)
+}
+
+pub async fn hash_password(
+    pool: web::Data<DbPool>,
+    username: String,
+    password: &str,
+) -> Result<String, Error> {
+    let mut hasher = argonautica::Hasher::default();
+    let conn = pool.get().map_err(|_| {})?;
+    hasher
+        .configure_iterations(8)
+        .configure_memory_size(65536)
+        // Not supported by pakreqBot
+        .opt_out_of_secret_key(true);
+    let user = web::block(move || db::get_user_by_username(&conn, &username)).await?;
+    if let Some(user) = user {
+        let encoded = format!("{}:{}", user.id, password);
+        let result = web::block(move || hasher.with_password(encoded).hash()).await?;
+        return Ok(result);
+    }
+
+    Err(IoError::new(ErrorKind::InvalidData, "Invalid data").into())
 }
 
 pub async fn form_login(
@@ -162,11 +185,11 @@ pub async fn form_account(
                 ));
         }
         let template = PanelTemplate {
-            base_url,
+            base_url: base_url.clone(),
             banner_subtitle: format!("Settings for {}", id),
             msg: "Current password is incorrect!".to_owned(),
         };
-        let is_password_correct = check_password(pool, id, &form.current_password)
+        let is_password_correct = check_password(pool.clone(), id.clone(), &form.current_password)
             .await
             .map_err(|_| {
                 HttpResponse::Unauthorized()
@@ -178,8 +201,19 @@ pub async fn form_account(
                     )
             })?;
         if is_password_correct {
-            // TODO
-            return Ok(HttpResponse::Ok().body("TODO"));
+            let password_hash = hash_password(pool.clone(), id.clone(), &form.new_password).await?;
+            let conn = pool.get().map_err(|_| {})?;
+            web::block(move || db::update_password_hash(&conn, id.clone(), password_hash)).await?;
+            let template = PanelTemplate {
+                base_url,
+                banner_subtitle: format!("Settings"),
+                msg: "Password changed successfully".to_owned(),
+            };
+            return Ok(HttpResponse::Ok().body(
+                template
+                    .call()
+                    .unwrap_or("Internal Server Error".to_string()),
+            ));
         }
         return Ok(HttpResponse::Unauthorized()
             .header(http::header::CONTENT_TYPE, "text/html")
