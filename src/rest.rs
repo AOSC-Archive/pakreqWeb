@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::path::{Iter, PathBuf};
 
-const BAD_REQUEST_RETURN: &'static str = r#"{"success": false, "message": "Bad Request"}"#;
-const INTERNAL_ERR_RESPONSE: &'static str = r#"{"success": false, "message": "Internal error"}"#;
-const NOT_AUTHORIZED_RESPONSE: &'static str = r#"{"success": false, "message": "Not authorized"}"#;
+pub const BAD_REQUEST_RETURN: &'static str = r#"{"success": false, "message": "Bad Request"}"#;
+pub const INTERNAL_ERR_RESPONSE: &'static str = r#"{"success": false, "message": "Internal error"}"#;
+pub const NOT_AUTHORIZED_RESPONSE: &'static str = r#"{"success": false, "message": "Not authorized"}"#;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct UserClaims {
@@ -25,6 +25,7 @@ struct TokenResponse {
     token: String,
 }
 
+#[macro_export]
 macro_rules! BAD_REQUEST {
     () => {
         HttpResponse::BadRequest()
@@ -33,6 +34,7 @@ macro_rules! BAD_REQUEST {
     };
 }
 
+#[macro_export]
 macro_rules! INTERNAL_ERROR {
     () => {
         HttpResponse::InternalServerError()
@@ -41,6 +43,7 @@ macro_rules! INTERNAL_ERROR {
     };
 }
 
+#[macro_export]
 macro_rules! NOT_AUTHORIZED {
     () => {
         HttpResponse::Unauthorized()
@@ -49,6 +52,7 @@ macro_rules! NOT_AUTHORIZED {
     };
 }
 
+#[macro_export]
 macro_rules! OK {
     ($r:ident) => {
         HttpResponse::Ok()

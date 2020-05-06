@@ -7,14 +7,17 @@ use actix_web::{http, http::StatusCode, middleware, web, App, Error, HttpServer,
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
 use dotenv;
+use std::time::Duration;
 use yarte::Template;
+use log::info;
 
 mod assets;
 mod auth;
 mod db;
 mod models;
-mod schema;
 mod rest;
+mod oauth;
+mod schema;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -43,7 +46,11 @@ struct DetailsTemplate {
     banner_title: String,
 }
 
-async fn details(pool: web::Data<DbPool>, base_url: String, path: web::Path<(i64,)>) -> Result<HttpResponse, Error> {
+async fn details(
+    pool: web::Data<DbPool>,
+    base_url: String,
+    path: web::Path<(i64,)>,
+) -> Result<HttpResponse, Error> {
     let conn = pool.get().unwrap();
 
     let detail = web::block(move || db::get_request_detail_by_id(&conn, path.0))
@@ -63,6 +70,17 @@ async fn details(pool: web::Data<DbPool>, base_url: String, path: web::Path<(i64
                 .call()
                 .unwrap_or("Internal Server Error".to_string()),
         );
+    Ok(res)
+}
+
+async fn ping(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
+    let conn = pool.get();
+    let res;
+    if conn.is_ok() {
+        res = HttpResponse::NoContent().finish();
+    } else {
+        res = HttpResponse::InternalServerError().finish();
+    }
     Ok(res)
 }
 
@@ -94,7 +112,7 @@ async fn not_found() -> impl Responder {
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "actix_web=info");
+    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
     dotenv::dotenv().ok();
     let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
@@ -103,8 +121,10 @@ async fn main() -> std::io::Result<()> {
     std::env::var("JWT_SECRET").expect("JWT_SECRET not set"); // will be used later
     let manager = ConnectionManager::<PgConnection>::new(connspec);
     let pool = r2d2::Pool::builder()
+        .connection_timeout(Duration::from_secs(10))
         .build(manager)
         .expect("Unable to establish database connections");
+    info!("Database connection established.");
 
     HttpServer::new(move || {
         App::new()
@@ -117,17 +137,24 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::NormalizePath)
             .data(pool.clone())
             .data(base_url.clone())
+            // traditional pages
             .route("/", web::get().to(index))
+            .route("/", web::head().to(ping))
             .route("/detail/{id}", web::get().to(details))
             .route("/login", web::get().to(auth::login))
             .route("/login", web::post().to(auth::form_login))
             .route("/logout", web::get().to(auth::logout))
             .route("/account", web::get().to(auth::account_panel))
             .route("/account", web::post().to(auth::form_account))
+            // static files
             .route("/static/aosc.png", web::get().to(assets::logo_png))
             .route("/static/aosc.svg", web::get().to(assets::logo_svg))
             .route("/static/style.css", web::get().to(assets::style_css))
+            // RESTful APIs
             .route("/api/{endpoint:.*}", web::get().to(rest::rest_dispatch))
+            // OAuth handlers
+            .route("/oauth/telegram", web::post().to(oauth::oauth_telegram))
+            .route("/oauth/aosc", web::post().to(oauth::oauth_aosc))
             .default_service(web::route().to(not_found))
     })
     .bind(listen)?

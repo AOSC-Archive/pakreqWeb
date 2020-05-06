@@ -1,4 +1,4 @@
-use crate::models::{Request, RequestStr, RequestInput, User, Oauth};
+use crate::models::{Oauth, Request, RequestInput, RequestStr, User};
 use diesel::prelude::*;
 
 pub fn get_open_requests(conn: &PgConnection) -> Result<Vec<Request>, diesel::result::Error> {
@@ -85,12 +85,15 @@ pub fn get_user_by_oauth(
     token: Option<&str>,
 ) -> Result<User, diesel::result::Error> {
     use crate::schema::*;
-    let (user_, _) = user::table.inner_join(oauth::table).filter(
-        oauth::type_
-            .eq(service)
-            .and(oauth::oid.eq(oid_))
-            .and(oauth::token.eq(token)),
-    ).first::<(User, Oauth)>(conn)?;
+    let (user_, _) = user::table
+        .inner_join(oauth::table)
+        .filter(
+            oauth::type_
+                .eq(service)
+                .and(oauth::oid.eq(oid_))
+                .and(oauth::token.eq(token)),
+        )
+        .first::<(User, Oauth)>(conn)?;
 
     Ok(user_)
 }
@@ -116,11 +119,29 @@ pub fn close_request_by_id(
     Ok(())
 }
 
-pub fn update_password_hash(conn: &PgConnection, username_: String, hash: String) -> Result<(), diesel::result::Error> {
+pub fn update_password_hash(
+    conn: &PgConnection,
+    username_: String,
+    hash: String,
+) -> Result<(), diesel::result::Error> {
     use crate::schema::user::dsl::*;
     diesel::update(user.filter(username.eq(username_)))
         .set(password_hash.eq(hash))
         .get_result::<User>(conn)?;
+
+    Ok(())
+}
+
+pub fn add_user(conn: &PgConnection, user_: User) -> Result<(), diesel::result::Error> {
+    use crate::schema::user::dsl::*;
+    diesel::insert_into(user).values(&user_).execute(conn)?;
+
+    Ok(())
+}
+
+pub fn add_oauth_info(conn: &PgConnection, info: Oauth) -> Result<(), diesel::result::Error> {
+    use crate::schema::oauth::dsl::*;
+    diesel::insert_into(oauth).values(&info).execute(conn)?;
 
     Ok(())
 }
