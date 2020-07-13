@@ -7,16 +7,16 @@ use actix_web::{http, http::StatusCode, middleware, web, App, Error, HttpServer,
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
 use dotenv;
+use log::info;
 use std::time::Duration;
 use yarte::Template;
-use log::info;
 
 mod assets;
 mod auth;
 mod db;
 mod models;
-mod rest;
 mod oauth;
+mod rest;
 mod schema;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -107,7 +107,13 @@ async fn index(pool: web::Data<DbPool>, base_url: String) -> Result<HttpResponse
 }
 
 async fn not_found() -> impl Responder {
-    (NotFoundTemplate {}).with_status(StatusCode::NOT_FOUND)
+    HttpResponse::NotFound()
+        .header(http::header::CONTENT_TYPE, "text/html")
+        .body(
+            (NotFoundTemplate {})
+                .call()
+                .unwrap_or("Internal Server Error".to_string()),
+        )
 }
 
 #[actix_rt::main]
