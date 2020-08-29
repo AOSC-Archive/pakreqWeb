@@ -1,6 +1,6 @@
 -- 
 CREATE TABLE public."iter_plans"(
-    id bigserial PRIMARY KEY NOT NULL,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     title text NOT NULL,
     begin_date timestamp NOT NULL,
     end_date timestamp NOT NULL,
@@ -8,15 +8,17 @@ CREATE TABLE public."iter_plans"(
 );
 
 CREATE TABLE public."iter_entries"(
-    id bigserial PRIMARY KEY NOT NULL,
-    plan_id bigserial NOT NULL REFERENCES "iter_plans"(id),
-    title text NOT NULL,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    plan_id bigint NOT NULL REFERENCES "iter_plans"(id),
+    parent_id bigint REFERENCES "iter_entries"(id) ON DELETE CASCADE,
+    name text NOT NULL,
     done bool NOT NULL,
     "date" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
     category text NOT NULL,
     "version" text NOT NULL,
     origin text NOT NULL,
     "target" text NOT NULL,
+    url text NOT NULL,
     "description" text NOT NULL
 );
 
