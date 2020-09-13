@@ -13,12 +13,10 @@ struct TgProfile {
     auth_date: DateTime<Utc>,
     id: u64,
     hash: String,
-    username: String,
-    #[serde(default)]
-    photo_url: String,
+    username: Option<String>,
+    photo_url: Option<String>,
     first_name: String,
-    #[serde(default)]
-    last_name: String,
+    last_name: Option<String>,
 }
 
 #[derive(Deserialize)]

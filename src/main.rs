@@ -53,7 +53,7 @@ async fn details(
 ) -> Result<HttpResponse, Error> {
     let conn = pool.get().unwrap();
 
-    let detail = web::block(move || db::get_request_detail_by_id(&conn, path.0))
+    let detail = web::block(move || db::get_request_detail_by_id(&conn, (path.0).0))
         .await
         .map_err(|_| HttpResponse::InternalServerError().finish())?;
     let request_name = detail.name.clone();
@@ -140,7 +140,7 @@ async fn main() -> std::io::Result<()> {
                     .name("identity")
                     .secure(false),
             ))
-            .wrap(middleware::NormalizePath)
+            .wrap(middleware::NormalizePath::default())
             .data(pool.clone())
             .data(base_url.clone())
             // traditional pages
