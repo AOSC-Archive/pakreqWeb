@@ -1,6 +1,6 @@
 use crate::{db, DbPool};
 use actix_identity::Identity;
-use actix_web::{error, web, Error, Responder};
+use actix_web::{get, post, error, web, Error, Responder};
 use actix_web::{http, http::StatusCode, HttpResponse};
 use argonautica;
 use diesel::PgConnection;
@@ -39,6 +39,7 @@ pub struct AccountForm {
     repeat_password: String,
 }
 
+#[get("/login")]
 pub async fn login(id: Identity, base_url: String) -> Result<HttpResponse, Error> {
     if let Some(_id) = id.identity() {
         return Ok(HttpResponse::Found()
@@ -105,6 +106,7 @@ pub async fn hash_password(
     Err(IoError::new(ErrorKind::InvalidData, "Invalid data").into())
 }
 
+#[post("/login")]
 pub async fn form_login(
     id: Identity,
     form: web::Form<LoginForm>,
@@ -143,6 +145,7 @@ pub async fn form_login(
         ))
 }
 
+#[get("/account")]
 pub async fn account_panel(id: Identity, base_url: String) -> Result<HttpResponse, Error> {
     if let Some(id) = id.identity() {
         let template = PanelTemplate {
@@ -163,6 +166,7 @@ pub async fn account_panel(id: Identity, base_url: String) -> Result<HttpRespons
         .finish());
 }
 
+#[post("/account")]
 pub async fn form_account(
     id: Identity,
     form: web::Form<AccountForm>,
@@ -228,6 +232,7 @@ pub async fn form_account(
         .finish());
 }
 
+#[get("/logout")]
 pub async fn logout(id: Identity) -> HttpResponse {
     if let Some(_) = id.identity() {
         id.forget();

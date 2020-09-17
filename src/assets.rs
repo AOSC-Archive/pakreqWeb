@@ -1,4 +1,4 @@
-use actix_web::{get, post, Responder};
+use actix_web::{get, Responder};
 
 const STYLE_CSS: &'static str = include_str!("../static/style.css");
 const LOGO_SVG: &'static str = include_str!("../static/aosc.svg");

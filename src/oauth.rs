@@ -29,9 +29,9 @@ pub async fn oauth_telegram(
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
     // TODO: make this a config
-    if let Ok(secret) = std::env::var("TG_BOT_SECRET") {
+    // if let Ok(secret) = std::env::var("TG_BOT_SECRET") {
 
-    }
+    // }
     Ok(BAD_REQUEST!())
 }
 
