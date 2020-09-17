@@ -3,11 +3,12 @@ extern crate diesel;
 
 use actix_identity::{CookieIdentityPolicy, Identity, IdentityService};
 use actix_web::HttpResponse;
-use actix_web::{http, http::StatusCode, middleware, web, App, Error, HttpServer, Responder};
+use actix_web::{get, post, head, http, http::StatusCode, middleware, web, App, Error, HttpServer, Responder};
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
 use dotenv;
 use log::info;
+use middleware::normalize::TrailingSlash;
 use std::time::Duration;
 use yarte::Template;
 
@@ -46,6 +47,7 @@ struct DetailsTemplate {
     banner_title: String,
 }
 
+#[get("/detail/{id}")]
 async fn details(
     pool: web::Data<DbPool>,
     base_url: String,
@@ -73,6 +75,7 @@ async fn details(
     Ok(res)
 }
 
+#[head("/")]
 async fn ping(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let conn = pool.get();
     let res;
@@ -84,6 +87,7 @@ async fn ping(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     Ok(res)
 }
 
+#[get("/")]
 async fn index(pool: web::Data<DbPool>, base_url: String) -> Result<HttpResponse, Error> {
     let conn = pool.get().unwrap();
 
@@ -140,22 +144,22 @@ async fn main() -> std::io::Result<()> {
                     .name("identity")
                     .secure(false),
             ))
-            .wrap(middleware::NormalizePath::default())
+            .wrap(middleware::NormalizePath::new(TrailingSlash::Trim))
             .data(pool.clone())
             .data(base_url.clone())
             // traditional pages
-            .route("/", web::get().to(index))
-            .route("/", web::head().to(ping))
-            .route("/detail/{id}", web::get().to(details))
+            .service(ping)
+            .service(index)
+            .service(details)
             .route("/login", web::get().to(auth::login))
             .route("/login", web::post().to(auth::form_login))
             .route("/logout", web::get().to(auth::logout))
             .route("/account", web::get().to(auth::account_panel))
             .route("/account", web::post().to(auth::form_account))
             // static files
-            .route("/static/aosc.png", web::get().to(assets::logo_png))
-            .route("/static/aosc.svg", web::get().to(assets::logo_svg))
-            .route("/static/style.css", web::get().to(assets::style_css))
+            .service(assets::logo_png)
+            .service(assets::logo_svg)
+            .service(assets::style_css)
             // RESTful APIs
             .route("/api/{endpoint:.*}", web::get().to(rest::rest_dispatch))
             // OAuth handlers
