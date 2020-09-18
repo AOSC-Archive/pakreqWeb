@@ -1,11 +1,10 @@
-use crate::{db, DbPool};
+use crate::db;
 use actix_identity::Identity;
-use actix_web::{get, post, error, web, Error, Responder};
-use actix_web::{http, http::StatusCode, HttpResponse};
+use actix_web::{get, post, web, Error};
+use actix_web::{http, HttpResponse};
 use argonautica;
-use diesel::PgConnection;
 use serde::Deserialize;
-use std::io::{Error as IoError, ErrorKind};
+use sqlx::PgPool;
 use yarte::Template;
 
 #[derive(Template)]
@@ -60,57 +59,56 @@ pub async fn login(id: Identity, base_url: String) -> Result<HttpResponse, Error
 }
 
 pub async fn check_password(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     username: String,
     pwd: &str,
 ) -> Result<bool, Error> {
-    let conn = pool.get().unwrap();
-    let user = web::block(move || db::get_user_by_username(&conn, &username)).await?;
+    let conn = pool.get_ref();
+    let user = db::get_user_by_username(&conn, &username)
+        .await
+        .map_err(|_| HttpResponse::BadRequest().body("Internal Server Error"))?;
     let mut verifier = argonautica::Verifier::default();
-    if let Some(user) = user {
-        let encoded_password = format!("{}:{}", user.id, pwd);
-        if let Some(password_hash) = user.password_hash {
-            let is_valid: bool = web::block(move || {
-                verifier
-                    .with_hash(password_hash)
-                    .with_password(encoded_password)
-                    .verify()
-            })
-            .await?;
-            return Ok(is_valid);
-        }
+    let encoded_password = format!("{}:{}", user.id, pwd);
+    if let Some(password_hash) = user.password_hash {
+        let is_valid: bool = web::block(move || {
+            verifier
+                .with_hash(password_hash)
+                .with_password(encoded_password)
+                .verify()
+        })
+        .await?;
+        return Ok(is_valid);
     }
 
     Ok(false)
 }
 
 pub async fn hash_password(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     username: String,
     password: &str,
 ) -> Result<String, Error> {
     let mut hasher = argonautica::Hasher::default();
-    let conn = pool.get().map_err(|_| {})?;
+    let conn = pool.get_ref();
     hasher
         .configure_iterations(8)
         .configure_memory_size(65536)
         // Not supported by pakreqBot
         .opt_out_of_secret_key(true);
-    let user = web::block(move || db::get_user_by_username(&conn, &username)).await?;
-    if let Some(user) = user {
-        let encoded = format!("{}:{}", user.id, password);
-        let result = web::block(move || hasher.with_password(encoded).hash()).await?;
-        return Ok(result);
-    }
+    let user = db::get_user_by_username(&conn, &username)
+        .await
+        .map_err(|_| HttpResponse::BadRequest().body("Internal Server Error"))?;
+    let encoded = format!("{}:{}", user.id, password);
+    let result = web::block(move || hasher.with_password(encoded).hash()).await?;
 
-    Err(IoError::new(ErrorKind::InvalidData, "Invalid data").into())
+    Ok(result)
 }
 
 #[post("/login")]
 pub async fn form_login(
     id: Identity,
     form: web::Form<LoginForm>,
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     base_url: String,
 ) -> Result<HttpResponse, Error> {
     let username = form.user.clone();
@@ -170,7 +168,7 @@ pub async fn account_panel(id: Identity, base_url: String) -> Result<HttpRespons
 pub async fn form_account(
     id: Identity,
     form: web::Form<AccountForm>,
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     base_url: String,
 ) -> Result<HttpResponse, Error> {
     if let Some(id) = id.identity() {
@@ -206,14 +204,16 @@ pub async fn form_account(
             })?;
         if is_password_correct {
             let password_hash = hash_password(pool.clone(), id.clone(), &form.new_password).await?;
-            let conn = pool.get().map_err(|_| {})?;
-            web::block(move || db::update_password_hash(&conn, id.clone(), password_hash)).await?;
+            let conn = pool.get_ref();
+            db::update_password_hash(&conn, id.clone(), password_hash)
+                .await
+                .map_err(|_| HttpResponse::BadRequest().body("Internal Server Error"))?;
             let template = PanelTemplate {
                 base_url,
                 banner_subtitle: format!("Settings"),
                 msg: "Password changed successfully".to_owned(),
             };
-            return Ok(HttpResponse::Ok().body(
+            return Ok(HttpResponse::InternalServerError().body(
                 template
                     .call()
                     .unwrap_or("Internal Server Error".to_string()),

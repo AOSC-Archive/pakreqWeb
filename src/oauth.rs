@@ -1,12 +1,11 @@
-use crate::{auth, db, models, DbPool, BAD_REQUEST};
+use crate::{auth, db, BAD_REQUEST};
 use crate::rest::{BAD_REQUEST_RETURN, INTERNAL_ERR_RESPONSE, NOT_AUTHORIZED_RESPONSE};
-use actix_web::{error, web, Error, Responder};
-use actix_web::{http, http::StatusCode, HttpRequest, HttpResponse};
+use actix_web::{web, Error};
+use actix_web::{http, HttpRequest, HttpResponse};
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use serde_json::to_string;
-use std::path::{Iter, PathBuf};
+use sqlx::PgPool;
 
 #[derive(Deserialize)]
 struct TgProfile {
@@ -25,7 +24,7 @@ struct TgProfileResponse {
 }
 
 pub async fn oauth_telegram(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
     // TODO: make this a config
@@ -36,7 +35,7 @@ pub async fn oauth_telegram(
 }
 
 pub async fn oauth_aosc(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
     Ok(BAD_REQUEST!())

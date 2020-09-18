@@ -1,11 +1,12 @@
-use crate::{auth, db, models, DbPool};
-use actix_web::{error, web, Error, Responder};
-use actix_web::{http, http::StatusCode, HttpRequest, HttpResponse};
+use crate::{auth, db};
+use actix_web::{web, Error};
+use actix_web::{http, HttpRequest, HttpResponse};
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::path::{Iter, PathBuf};
+use sqlx::PgPool;
 
 pub const BAD_REQUEST_RETURN: &'static str = r#"{"success": false, "message": "Bad Request"}"#;
 pub const INTERNAL_ERR_RESPONSE: &'static str = r#"{"success": false, "message": "Internal error"}"#;
@@ -62,7 +63,7 @@ macro_rules! OK {
 }
 
 pub async fn rest_dispatch(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
     let path = req.match_info().query("endpoint").parse::<PathBuf>();
@@ -87,16 +88,16 @@ pub async fn rest_dispatch(
 
 #[inline]
 async fn rest_request_detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     mut components: Iter<'_>,
 ) -> Result<HttpResponse, Error> {
-    let conn = pool.get().unwrap();
+    let conn = pool.get_ref();
 
     let request_id = components.next();
     if let Some(request_id) = request_id {
         let request_id =
             str::parse::<i64>(&request_id.to_string_lossy()).map_err(|_| INTERNAL_ERROR!())?;
-        let detail = web::block(move || db::get_request_detail_by_id(&conn, request_id))
+        let detail = db::get_request_detail_by_id(&conn, request_id)
             .await
             .map_err(|_| INTERNAL_ERROR!())?;
         let result = to_string(&detail).map_err(|_| INTERNAL_ERROR!())?;
@@ -108,20 +109,19 @@ async fn rest_request_detail(
 
 #[inline]
 async fn rest_requests(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     _components: Iter<'_>,
 ) -> Result<HttpResponse, Error> {
-    let conn = pool.get().unwrap();
-    let requests = web::block(move || db::get_open_requests(&conn))
+    let conn = pool.get_ref();
+    let requests = db::get_open_requests_json(&conn)
         .await
         .map_err(|_| INTERNAL_ERROR!())?;
-    let result = to_string(&requests).map_err(|_| INTERNAL_ERROR!())?;
 
-    Ok(OK!(result))
+    Ok(OK!(requests))
 }
 
 #[inline]
-async fn rest_login(pool: web::Data<DbPool>, req: &HttpRequest) -> Result<HttpResponse, Error> {
+async fn rest_login(pool: web::Data<PgPool>, req: &HttpRequest) -> Result<HttpResponse, Error> {
     let headers = req.headers();
     let username = headers.get("x-username");
     let password = headers.get("x-password");

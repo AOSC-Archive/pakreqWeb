@@ -1,15 +1,12 @@
-#[macro_use]
-extern crate diesel;
-
-use actix_identity::{CookieIdentityPolicy, Identity, IdentityService};
+use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::HttpResponse;
-use actix_web::{get, post, head, http, http::StatusCode, middleware, web, App, Error, HttpServer, Responder};
-use diesel::prelude::*;
-use diesel::r2d2::ConnectionManager;
+use actix_web::{
+    get, head, http, middleware, web, App, Error, HttpServer, Responder,
+};
 use dotenv;
 use log::info;
 use middleware::normalize::TrailingSlash;
-use std::time::Duration;
+use sqlx::PgPool;
 use yarte::Template;
 
 mod assets;
@@ -18,9 +15,6 @@ mod db;
 mod models;
 mod oauth;
 mod rest;
-mod schema;
-
-type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 #[derive(Template)]
 #[template(path = "404.hbs")]
@@ -49,13 +43,13 @@ struct DetailsTemplate {
 
 #[get("/detail/{id}")]
 async fn details(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     base_url: String,
     path: web::Path<(i64,)>,
 ) -> Result<HttpResponse, Error> {
-    let conn = pool.get().unwrap();
+    let conn = pool.get_ref();
 
-    let detail = web::block(move || db::get_request_detail_by_id(&conn, (path.0).0))
+    let detail = db::get_request_detail_by_id(&conn, (path.0).0)
         .await
         .map_err(|_| HttpResponse::InternalServerError().finish())?;
     let request_name = detail.name.clone();
@@ -76,22 +70,16 @@ async fn details(
 }
 
 #[head("/")]
-async fn ping(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
-    let conn = pool.get();
-    let res;
-    if conn.is_ok() {
-        res = HttpResponse::NoContent().finish();
-    } else {
-        res = HttpResponse::InternalServerError().finish();
-    }
-    Ok(res)
+async fn ping(pool: web::Data<PgPool>) -> Result<HttpResponse, Error> {
+    pool.get_ref();
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[get("/")]
-async fn index(pool: web::Data<DbPool>, base_url: String) -> Result<HttpResponse, Error> {
-    let conn = pool.get().unwrap();
+async fn index(pool: web::Data<PgPool>, base_url: String) -> Result<HttpResponse, Error> {
+    let conn = pool.get_ref();
 
-    let requests: Vec<models::Request> = web::block(move || db::get_open_requests(&conn))
+    let requests: Vec<models::Request> = db::get_open_requests(&conn)
         .await
         .map_err(|_| HttpResponse::InternalServerError().finish())?;
     let count = requests.len();
@@ -120,7 +108,7 @@ async fn not_found() -> impl Responder {
         )
 }
 
-#[actix_rt::main]
+#[actix_web::main]
 async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
@@ -129,11 +117,9 @@ async fn main() -> std::io::Result<()> {
     let listen = std::env::var("LISTEN_ADDRESS").expect("LISTEN_ADDRESS not set");
     let base_url = std::env::var("BASE_URL").expect("BASE_URL not set");
     std::env::var("JWT_SECRET").expect("JWT_SECRET not set"); // will be used later
-    let manager = ConnectionManager::<PgConnection>::new(connspec);
-    let pool = r2d2::Pool::builder()
-        .connection_timeout(Duration::from_secs(10))
-        .build(manager)
-        .expect("Unable to establish database connections");
+    let pool = PgPool::new(&connspec)
+        .await
+        .expect("Unable to connect to database.");
     info!("Database connection established.");
 
     HttpServer::new(move || {
