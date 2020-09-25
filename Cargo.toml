@@ -11,6 +11,7 @@ lto = true
 
 [dependencies]
 actix-web = "3.0"
+awc = "2.0"
 yarte = { version = "0.12", features = ["html-min"] }
 dotenv = "0.15"
 chrono = { version = "0.4", features = ["serde"] }
@@ -18,11 +19,14 @@ serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
 env_logger = "0.7"
-actix-rt = "1.1"
+rand = "0.7"
 log = "0.4"
 actix-identity = "0.3"
-failure = "0.1"
+actix-session = "0.4"
 argonautica = { git = "https://github.com/bcmyers/argonautica" }
 jsonwebtoken = "7"
 sqlx = { version = "0.3", default-features = false, features = [ "runtime-tokio", "macros", "postgres", "chrono" ] }
 anyhow = "1.0"
+oauth2 = { version = "4.0.0-alpha.1" }
+http = "0.2"
+base64 = "0.12"

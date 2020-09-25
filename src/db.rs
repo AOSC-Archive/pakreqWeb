@@ -64,7 +64,7 @@ pub async fn get_request_detail_by_id(conn: &PgPool, id_: i64) -> Result<Request
 
 pub async fn get_user_by_username(conn: &PgPool, username_: &str) -> Result<User> {
     let record = sqlx::query!(
-        r#"SELECT id, username FROM "user" WHERE username = $1"#,
+        r#"SELECT id, username, password_hash FROM "user" WHERE username = $1"#,
         username_
     )
     .fetch_one(conn)
@@ -74,7 +74,7 @@ pub async fn get_user_by_username(conn: &PgPool, username_: &str) -> Result<User
         id: record.id,
         username: record.username,
         admin: false,
-        password_hash: None,
+        password_hash: record.password_hash,
     })
 }
 
@@ -84,10 +84,35 @@ pub async fn get_user_by_oid(conn: &PgPool, service: &str, oid: &str) -> Result<
         r#"SELECT u.id, u.username, u.admin, u.password_hash
         FROM "user" u INNER JOIN oauth o ON o.uid = u.id
         WHERE o.oid = $1 AND o.type = $2"#,
-        oid, service
-    ).fetch_one(conn).await?;
+        oid,
+        service
+    )
+    .fetch_one(conn)
+    .await?;
 
     Ok(user_)
+}
+
+pub async fn get_oauth_by_username(conn: &PgPool, username: &str) -> Result<Vec<Oauth>> {
+    let mut oauth = Vec::new();
+    let records = sqlx::query!(
+        r#"SELECT o.uid, o.type, o.oid
+        FROM "user" u INNER JOIN oauth o ON o.uid = u.id
+        WHERE u.username = $1"#,
+        username
+    )
+    .fetch_all(conn)
+    .await?;
+    for record in records {
+        oauth.push(Oauth {
+            uid: record.uid,
+            type_: record.r#type,
+            oid: record.oid,
+            token: None,
+        });
+    }
+
+    Ok(oauth)
 }
 
 // Writables
@@ -134,7 +159,8 @@ pub async fn add_user(conn: &PgPool, user_: User) -> Result<()> {
 pub async fn add_oauth_info(conn: &PgPool, info: Oauth) -> Result<()> {
     let mut tx = conn.begin().await?;
     sqlx::query!(
-        r#"INSERT INTO "oauth" (type, oid, token) VALUES ($1, $2, $3)"#,
+        r#"INSERT INTO "oauth" (uid, type, oid, token) VALUES ($1, $2, $3, $4)"#,
+        info.uid,
         info.type_,
         info.oid,
         info.token

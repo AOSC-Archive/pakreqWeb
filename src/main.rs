@@ -1,12 +1,14 @@
 use actix_identity::{CookieIdentityPolicy, IdentityService};
+use actix_session::CookieSession;
 use actix_web::HttpResponse;
-use actix_web::{
-    get, head, http, middleware, web, App, Error, HttpServer, Responder,
-};
+use actix_web::{get, head, http, middleware, web, App, Error, HttpServer, Responder};
 use dotenv;
 use log::info;
 use middleware::normalize::TrailingSlash;
+use oauth2::basic::BasicClient;
+use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use sqlx::PgPool;
+use rand::RngCore;
 use yarte::Template;
 
 mod assets;
@@ -117,22 +119,45 @@ async fn main() -> std::io::Result<()> {
     let listen = std::env::var("LISTEN_ADDRESS").expect("LISTEN_ADDRESS not set");
     let base_url = std::env::var("BASE_URL").expect("BASE_URL not set");
     std::env::var("JWT_SECRET").expect("JWT_SECRET not set"); // will be used later
+    std::env::var("OAUTH_JWK_URL").expect("OAUTH_JWK_URL not set"); // will be used later
+    let oauth_client = std::env::var("OAUTH_CLIENT_ID").expect("OAUTH_CLIENT_ID not set");
+    let oauth_secret = std::env::var("OAUTH_SECRET").expect("OAUTH_SECRET not set");
+    let oauth_auth_url = std::env::var("OAUTH_AUTH_URL").expect("OAUTH_URL not set");
+    let oauth_token_url = std::env::var("OAUTH_TOKEN_URL").expect("OAUTH_URL not set");
     let pool = PgPool::new(&connspec)
         .await
         .expect("Unable to connect to database.");
     info!("Database connection established.");
+    let oauth = BasicClient::new(
+        ClientId::new(oauth_client),
+        Some(ClientSecret::new(oauth_secret)),
+        AuthUrl::new(oauth_auth_url).expect("OAUTH_URL malformed"),
+        Some(TokenUrl::new(oauth_token_url).unwrap()),
+    )
+    .set_redirect_url(RedirectUrl::new(format!("{}/oauth/aosc/", base_url)).unwrap());
+    let mut rng = rand::thread_rng();
+    let mut id_key: [u8; 32] = [0; 32];
+    let mut csrf_key: [u8; 32] = [0; 32];
+    rng.fill_bytes(&mut id_key);
+    rng.fill_bytes(&mut csrf_key);
 
     HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default()) // enable logger
             .wrap(IdentityService::new(
-                CookieIdentityPolicy::new(&[0; 32])
+                CookieIdentityPolicy::new(&id_key)
                     .name("identity")
-                    .secure(false),
+                    .secure(true),
             ))
+            .wrap(
+                CookieSession::private(&csrf_key)
+                    .name("csrf")
+                    .path("/")
+                    .secure(true))
             .wrap(middleware::NormalizePath::new(TrailingSlash::Trim))
             .data(pool.clone())
             .data(base_url.clone())
+            .data(oauth.clone())
             // traditional pages
             .service(ping)
             .service(index)
@@ -150,7 +175,8 @@ async fn main() -> std::io::Result<()> {
             .route("/api/{endpoint:.*}", web::get().to(rest::rest_dispatch))
             // OAuth handlers
             .route("/oauth/telegram", web::post().to(oauth::oauth_telegram))
-            .route("/oauth/aosc", web::post().to(oauth::oauth_aosc))
+            .service(oauth::oauth_aosc)
+            .service(oauth::oauth_aosc_new)
             .default_service(web::route().to(not_found))
     })
     .bind(listen)?

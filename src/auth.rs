@@ -1,4 +1,4 @@
-use crate::db;
+use crate::{db, models::Oauth};
 use actix_identity::Identity;
 use actix_web::{get, post, web, Error};
 use actix_web::{http, HttpResponse};
@@ -20,6 +20,7 @@ struct PanelTemplate {
     base_url: String,
     banner_subtitle: String,
     msg: String,
+    oauth: Vec<Oauth>,
 }
 
 #[derive(Deserialize)]
@@ -144,12 +145,14 @@ pub async fn form_login(
 }
 
 #[get("/account")]
-pub async fn account_panel(id: Identity, base_url: String) -> Result<HttpResponse, Error> {
+pub async fn account_panel(id: Identity, base_url: String, pool: web::Data<PgPool>,) -> Result<HttpResponse, Error> {
     if let Some(id) = id.identity() {
+        let oauth = db::get_oauth_by_username(pool.get_ref(), &id).await.unwrap_or(vec![]);
         let template = PanelTemplate {
             base_url,
             banner_subtitle: format!("Settings for {}", id),
             msg: "".to_owned(),
+            oauth,
         };
         return Ok(HttpResponse::Ok()
             .header(http::header::CONTENT_TYPE, "text/html")
@@ -172,9 +175,11 @@ pub async fn form_account(
     base_url: String,
 ) -> Result<HttpResponse, Error> {
     if let Some(id) = id.identity() {
+        let oauth = db::get_oauth_by_username(pool.get_ref(), &id).await.unwrap_or(vec![]);
         if form.new_password != form.repeat_password {
             let template = PanelTemplate {
                 base_url,
+                oauth,
                 banner_subtitle: format!("Settings for {}", id),
                 msg: "New password and Confirm new password mismatch!".to_owned(),
             };
@@ -186,7 +191,8 @@ pub async fn form_account(
                         .unwrap_or("Internal Server Error".to_string()),
                 ));
         }
-        let template = PanelTemplate {
+        let mut template = PanelTemplate {
+            oauth,
             base_url: base_url.clone(),
             banner_subtitle: format!("Settings for {}", id),
             msg: "Current password is incorrect!".to_owned(),
@@ -208,11 +214,7 @@ pub async fn form_account(
             db::update_password_hash(&conn, id.clone(), password_hash)
                 .await
                 .map_err(|_| HttpResponse::BadRequest().body("Internal Server Error"))?;
-            let template = PanelTemplate {
-                base_url,
-                banner_subtitle: format!("Settings"),
-                msg: "Password changed successfully".to_owned(),
-            };
+            template.msg = "Password changed successfully".to_owned();
             return Ok(HttpResponse::InternalServerError().body(
                 template
                     .call()
