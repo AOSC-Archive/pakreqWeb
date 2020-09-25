@@ -177,6 +177,7 @@ async fn main() -> std::io::Result<()> {
             .route("/oauth/telegram", web::post().to(oauth::oauth_telegram))
             .service(oauth::oauth_aosc)
             .service(oauth::oauth_aosc_new)
+            .service(oauth::oauth_aosc_unlink)
             .default_service(web::route().to(not_found))
     })
     .bind(listen)?

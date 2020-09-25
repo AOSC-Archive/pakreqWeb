@@ -171,3 +171,18 @@ pub async fn add_oauth_info(conn: &PgPool, info: Oauth) -> Result<()> {
 
     Ok(())
 }
+
+pub async fn delete_oauth_info(conn: &PgPool, info: Oauth) -> Result<()> {
+    let mut tx = conn.begin().await?;
+    sqlx::query!(
+        r#"DELETE FROM "oauth" WHERE uid = $1 AND type = $2 AND oid = $3"#,
+        info.uid,
+        info.type_,
+        info.oid,
+    )
+    .execute(&mut tx)
+    .await?;
+    tx.commit().await?;
+
+    Ok(())
+}

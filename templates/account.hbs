@@ -37,7 +37,7 @@
                 {{#each oauth}}
                 <tr>
                     <td>{{ type_ }} ({{ oid.as_ref().unwrap_or(&"Unknown".to_string()) }})</td>
-                    <td><a>Unlink</a></td>
+                    <td><a href="{{ ::super::base_url }}/oauth/{{ type_.to_ascii_lowercase() }}/unlink?oid={{ oid.as_ref().unwrap_or(&"".to_string()) }}">Unlink</a></td>
                 </tr>
                 {{/each}}
                 <tr>

@@ -33,6 +33,11 @@ struct TgProfile {
     last_name: Option<String>,
 }
 #[derive(Deserialize)]
+pub struct OauthRemovalRequest {
+    oid: String,
+}
+
+#[derive(Deserialize)]
 pub struct OauthCallback {
     code: String,
     state: String,
@@ -60,6 +65,7 @@ struct DexClaim {
     sub: String,
 }
 
+#[inline]
 fn decode_subject(subject: &str) -> Result<String> {
     let decoded = base64::decode_config(subject, STANDARD_NO_PAD)?;
     if decoded.len() < 3 {
@@ -194,4 +200,33 @@ pub async fn oauth_aosc_new(
     Ok(HttpResponse::Found()
         .header(http::header::LOCATION, auth_url.to_string())
         .finish())
+}
+
+#[get("/oauth/aosc/unlink")]
+pub async fn oauth_aosc_unlink(
+    pool: web::Data<PgPool>,
+    id: Identity,
+    query: web::Query<OauthRemovalRequest>,
+) -> Result<HttpResponse, Error> {
+    if id.identity().is_none() {
+        return Ok(BAD_REQUEST!());
+    }
+    let user = db::get_user_by_username(pool.as_ref(), &id.identity().unwrap())
+        .await
+        .map_err(|_| BAD_REQUEST!())?;
+    db::delete_oauth_info(
+        pool.as_ref(),
+        Oauth {
+            uid: user.id,
+            type_: "AOSC".to_string(),
+            oid: Some(query.oid.clone()),
+            token: None,
+        },
+    )
+    .await
+    .map_err(|_| INTERNAL_ERROR!())?;
+
+    return Ok(HttpResponse::Found()
+        .header(http::header::LOCATION, "/account")
+        .finish());
 }
