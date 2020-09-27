@@ -1,4 +1,4 @@
-use crate::{auth, db, BAD_REQUEST, INTERNAL_ERROR};
+use crate::{db, BAD_REQUEST, INTERNAL_ERROR};
 use crate::{
     models::Oauth,
     rest::{BAD_REQUEST_RETURN, INTERNAL_ERR_RESPONSE, NOT_AUTHORIZED_RESPONSE},
@@ -9,9 +9,9 @@ use actix_web::{get, http, web, Error, HttpRequest, HttpResponse};
 use anyhow::{anyhow, Result};
 use awc::Client as awcClient;
 use base64::STANDARD_NO_PAD;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use jsonwebtoken::{
-    decode, decode_header, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation,
+    decode, decode_header, Algorithm, DecodingKey, Validation,
 };
 use log::info;
 use oauth2::{
@@ -23,16 +23,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 #[derive(Deserialize)]
-struct TgProfile {
-    auth_date: DateTime<Utc>,
-    id: u64,
-    hash: String,
-    username: Option<String>,
-    photo_url: Option<String>,
-    first_name: String,
-    last_name: Option<String>,
-}
-#[derive(Deserialize)]
 pub struct OauthRemovalRequest {
     oid: String,
 }
@@ -41,11 +31,6 @@ pub struct OauthRemovalRequest {
 pub struct OauthCallback {
     code: String,
     state: String,
-}
-
-#[derive(Deserialize)]
-struct TgProfileResponse {
-    data: TgProfile,
 }
 
 #[derive(Deserialize)]
@@ -145,7 +130,7 @@ pub async fn oauth_aosc(
                 .map_err(|_| {
                     HttpResponse::Unauthorized()
                         .header(http::header::CONTENT_TYPE, "text/html")
-                        .finish()
+                        .body("Upstream identity service does not like us")
                 })?;
             info!("OAuth2 challenge verified by idp");
             let name = validate_jwt_token(token.access_token().secret())
@@ -168,7 +153,7 @@ pub async fn oauth_aosc(
             info!("OAuth2 account added: {}", id);
             return Ok(HttpResponse::Found()
                 .header(http::header::LOCATION, "/account")
-                .finish());
+                .body("Authentication successful. Let's heading home..."));
         }
     }
 
@@ -199,7 +184,7 @@ pub async fn oauth_aosc_new(
 
     Ok(HttpResponse::Found()
         .header(http::header::LOCATION, auth_url.to_string())
-        .finish())
+        .body("We are sending you to the AOSC identity service"))
 }
 
 #[get("/oauth/aosc/unlink")]
