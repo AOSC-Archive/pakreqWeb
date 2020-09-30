@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use sqlx::PgPool;
 
 pub async fn get_open_requests(conn: &PgPool) -> Result<Vec<Request>> {
-    let records = sqlx::query!(r#"SELECT * FROM request WHERE status = 'OPEN'"#)
+    let records = sqlx::query!(r#"SELECT * FROM request WHERE status = 'OPEN' ORDER BY id DESC"#)
         .fetch_all(conn)
         .await?;
     let mut open_requests = Vec::new();
