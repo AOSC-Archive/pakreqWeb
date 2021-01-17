@@ -14,10 +14,7 @@ use jsonwebtoken::{
     decode, decode_header, Algorithm, DecodingKey, Validation,
 };
 use log::info;
-use oauth2::{
-    basic::BasicErrorResponseType, basic::BasicTokenType, AuthorizationCode, Client, CsrfToken,
-    EmptyExtraTokenFields, Scope, StandardErrorResponse, StandardTokenResponse,
-};
+use oauth2::{AuthorizationCode, Client, CsrfToken, EmptyExtraTokenFields, Scope, StandardErrorResponse, StandardTokenInspectionResponse, StandardTokenResponse, basic::BasicErrorResponseType, basic::BasicTokenResponse, basic::BasicTokenType};
 use oauth2::{reqwest::async_http_client, TokenResponse};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -113,6 +110,7 @@ pub async fn oauth_aosc(
             StandardErrorResponse<BasicErrorResponseType>,
             StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>,
             BasicTokenType,
+            StandardTokenInspectionResponse<EmptyExtraTokenFields, BasicTokenType>
         >,
     >,
 ) -> Result<HttpResponse, Error> {
@@ -169,6 +167,7 @@ pub async fn oauth_aosc_new(
             StandardErrorResponse<BasicErrorResponseType>,
             StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>,
             BasicTokenType,
+            StandardTokenInspectionResponse<EmptyExtraTokenFields, BasicTokenType>
         >,
     >,
 ) -> Result<HttpResponse, Error> {

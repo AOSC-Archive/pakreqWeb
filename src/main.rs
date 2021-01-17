@@ -124,7 +124,7 @@ async fn main() -> std::io::Result<()> {
     let oauth_secret = std::env::var("OAUTH_SECRET").expect("OAUTH_SECRET not set");
     let oauth_auth_url = std::env::var("OAUTH_AUTH_URL").expect("OAUTH_URL not set");
     let oauth_token_url = std::env::var("OAUTH_TOKEN_URL").expect("OAUTH_URL not set");
-    let pool = PgPool::new(&connspec)
+    let pool = PgPool::connect(&connspec)
         .await
         .expect("Unable to connect to database.");
     info!("Database connection established.");
