@@ -12,7 +12,7 @@ lto = true
 [dependencies]
 actix-web = "3.3"
 awc = "2.0"
-yarte = { version = "0.14", features = ["html-min"] }
+yarte = { version = "0.15", features = ["html-min"] }
 dotenv = "0.15"
 chrono = { version = "0.4", features = ["serde"] }
 serde = "1.0"
@@ -25,8 +25,8 @@ actix-identity = "0.3"
 actix-session = "0.4"
 argonautica = { git = "https://github.com/bcmyers/argonautica" }
 jsonwebtoken = "7"
-sqlx = { version = "0.4", default-features = false, features = [ "runtime-actix-native-tls", "macros", "postgres", "chrono" ] }
+sqlx = { version = "0.5", default-features = false, features = [ "runtime-actix-native-tls", "macros", "postgres", "chrono" ] }
 anyhow = "1.0"
-oauth2 = { version = "4.0.0-alpha.3" }
+oauth2 = { version = "4.0.0-alpha.6" }
 http = "0.2"
 base64 = "0.13"

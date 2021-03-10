@@ -110,11 +110,7 @@ async fn not_found() -> impl Responder {
         )
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "info");
-    env_logger::init();
-    dotenv::dotenv().ok();
+async fn initialize() -> std::io::Result<()> {
     let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
     let listen = std::env::var("LISTEN_ADDRESS").expect("LISTEN_ADDRESS not set");
     let base_url = std::env::var("BASE_URL").expect("BASE_URL not set");
@@ -134,7 +130,7 @@ async fn main() -> std::io::Result<()> {
         AuthUrl::new(oauth_auth_url).expect("OAUTH_URL malformed"),
         Some(TokenUrl::new(oauth_token_url).unwrap()),
     )
-    .set_redirect_url(RedirectUrl::new(format!("{}/oauth/aosc/", base_url)).unwrap());
+    .set_redirect_uri(RedirectUrl::new(format!("{}/oauth/aosc/", base_url)).unwrap());
     let mut rng = rand::thread_rng();
     let mut id_key: [u8; 32] = [0; 32];
     let mut csrf_key: [u8; 32] = [0; 32];
@@ -183,4 +179,13 @@ async fn main() -> std::io::Result<()> {
     .bind(listen)?
     .run()
     .await
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "info");
+    env_logger::init();
+    dotenv::dotenv().ok();
+
+    Ok(initialize().await?)
 }
