@@ -110,7 +110,12 @@ async fn not_found() -> impl Responder {
         )
 }
 
-async fn initialize() -> std::io::Result<()> {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "warn");
+    env_logger::init();
+    dotenv::dotenv().ok();
+
     let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
     let listen = std::env::var("LISTEN_ADDRESS").expect("LISTEN_ADDRESS not set");
     let base_url = std::env::var("BASE_URL").expect("BASE_URL not set");
@@ -178,14 +183,7 @@ async fn initialize() -> std::io::Result<()> {
     })
     .bind(listen)?
     .run()
-    .await
-}
+    .await?;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "info");
-    env_logger::init();
-    dotenv::dotenv().ok();
-
-    Ok(initialize().await?)
+    Ok(())
 }
