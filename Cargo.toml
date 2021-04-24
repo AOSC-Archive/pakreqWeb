@@ -27,6 +27,6 @@ argonautica = { git = "https://github.com/bcmyers/argonautica" }
 jsonwebtoken = "7"
 sqlx = { version = "0.4", default-features = false, features = [ "runtime-actix-native-tls", "macros", "postgres", "chrono" ] }
 anyhow = "1.0"
-oauth2 = { version = "4.0.0-alpha.6" }
+oauth2 = { version = "4.0.0" }
 http = "0.2"
 base64 = "0.13"
